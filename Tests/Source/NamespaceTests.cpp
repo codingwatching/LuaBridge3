@@ -588,6 +588,12 @@ T Function(T param)
     return param;
 }
 
+template<class T>
+T Function2(T param1, T param2)
+{
+    return param1 + param2;
+}
+
 int LuaFunction(lua_State* L)
 {
     lua_pushnumber(L, 42);
@@ -620,6 +626,91 @@ TEST_F(NamespaceTests, StdFunctions)
     runLua("result = Function (12)");
     ASSERT_TRUE(result().isNumber());
     ASSERT_EQ(12, result<int>());
+}
+
+TEST_F(NamespaceTests, StdBindFunctions)
+{
+    {
+        luabridge::getGlobalNamespace(L).addFunction("Function", std::bind(&Function<int>, 1));
+
+        runLua("result = Function ()");
+        ASSERT_TRUE(result().isNumber());
+        ASSERT_EQ(1, result<int>());
+    }
+
+    {
+        luabridge::getGlobalNamespace(L).addFunction("Function",
+            std::function<int(int)>(std::bind(&Function2<int>, 1, std::placeholders::_1)));
+
+        runLua("result = Function (12)");
+        ASSERT_TRUE(result().isNumber());
+        ASSERT_EQ(13, result<int>());
+    }
+}
+
+TEST_F(NamespaceTests, StdBindFrontFunctions)
+{
+    {
+        luabridge::getGlobalNamespace(L).addFunction("Function", std::bind_front(&Function<int>, 1));
+
+        runLua("result = Function ()");
+        ASSERT_TRUE(result().isNumber());
+        ASSERT_EQ(1, result<int>());
+    }
+
+    {
+        luabridge::getGlobalNamespace(L).addFunction("Function",
+            luabridge::bind_front(&Function2<int>, 1));
+
+        runLua("result = Function (12)");
+        ASSERT_TRUE(result().isNumber());
+        ASSERT_EQ(13, result<int>());
+    }
+}
+
+TEST_F(NamespaceTests, BindFrontCapturingLambdas)
+{
+    int x = 30;
+
+    luabridge::getGlobalNamespace(L).addFunction("Function",
+        luabridge::bind_front([x](int offset, int v) -> int { return x + offset + v; }, 2));
+
+    runLua("result = Function (10)");
+    ASSERT_TRUE(result().isNumber());
+    ASSERT_EQ(42, result<int>());
+}
+
+TEST_F(NamespaceTests, BindBackFunctions)
+{
+    {
+        luabridge::getGlobalNamespace(L).addFunction("Function",
+            luabridge::bind_back(&Function<int>, 1));
+
+        runLua("result = Function ()");
+        ASSERT_TRUE(result().isNumber());
+        ASSERT_EQ(1, result<int>());
+    }
+
+    {
+        luabridge::getGlobalNamespace(L).addFunction("Function",
+            luabridge::bind_back(&Function2<int>, 1));
+
+        runLua("result = Function (12)");
+        ASSERT_TRUE(result().isNumber());
+        ASSERT_EQ(13, result<int>());
+    }
+}
+
+TEST_F(NamespaceTests, BindBackCapturingLambdas)
+{
+    int x = 30;
+
+    luabridge::getGlobalNamespace(L).addFunction("Function",
+        luabridge::bind_back([x](int v, int offset) -> int { return x + offset + v; }, 2));
+
+    runLua("result = Function (10)");
+    ASSERT_TRUE(result().isNumber());
+    ASSERT_EQ(42, result<int>());
 }
 
 TEST_F(NamespaceTests, CapturingLambdas)
